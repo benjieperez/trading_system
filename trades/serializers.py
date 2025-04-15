@@ -9,6 +9,7 @@ class StockSerializer(serializers.ModelSerializer):
 class TradeSerializer(serializers.ModelSerializer):
     stock = StockSerializer(read_only=True)
     stock_id = serializers.CharField(write_only=True)
+    value = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
     
     class Meta:
         model = Trade
@@ -19,6 +20,11 @@ class TradeSerializer(serializers.ModelSerializer):
     def validate_stock_id(self, value):
         if not Stock.objects.filter(id=value).exists():
             raise serializers.ValidationError("Stock does not exist")
+        return value
+        
+    def validate_quantity(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("Quantity must be positive")
         return value
         
     def create(self, validated_data):

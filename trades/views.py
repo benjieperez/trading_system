@@ -1,19 +1,23 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
 from django.db import transaction
 from .models import Stock, Trade
 from .serializers import StockSerializer, TradeSerializer, BulkTradeSerializer
 import csv
 import os
 from django.conf import settings
-from datetime import datetime
 
 class TradeViewSet(viewsets.ModelViewSet):
     serializer_class = TradeSerializer
+    permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
-        return Trade.objects.filter(user=self.request.user)
+        return Trade.objects.filter(user=self.request.user).select_related('stock')
+    
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
     
     @action(detail=False, methods=['post'], serializer_class=BulkTradeSerializer)
     def bulk(self, request):
@@ -31,40 +35,53 @@ class TradeViewSet(viewsets.ModelViewSet):
                 trade = Trade(
                     user=request.user,
                     stock=stock,
-                    trade_type=row['trade_type'],
-                    quantity=row['quantity'],
+                    trade_type=row['trade_type'].upper(),
+                    quantity=int(row['quantity']),
                     price_at_trade=stock.price
                 )
                 trades.append(trade)
-            except (Stock.DoesNotExist, KeyError) as e:
+            except (Stock.DoesNotExist, KeyError, ValueError) as e:
                 continue
         
-        Trade.objects.bulk_create(trades)
-        return Response({"status": "success", "created": len(trades)}, 
-                       status=status.HTTP_201_CREATED)
-    
-    @action(detail=False, methods=['get'])
-    def stock_value(self, request):
-        stock_id = request.query_params.get('stock_id')
-        if not stock_id:
-            return Response({"error": "stock_id parameter is required"}, 
-                          status=status.HTTP_400_BAD_REQUEST)
-        
-        try:
-            stock = Stock.objects.get(id=stock_id)
-        except Stock.DoesNotExist:
-            return Response({"error": "Stock not found"}, 
-                          status=status.HTTP_404_NOT_FOUND)
-        
-        trades = Trade.objects.filter(user=request.user, stock=stock)
-        total_value = sum(trade.value for trade in trades)
+        with transaction.atomic():
+            Trade.objects.bulk_create(trades)
         
         return Response({
-            "stock": stock_id,
-            "total_value": total_value,
-            "currency": "USD"
+            "status": "success",
+            "created": len(trades),
+            "failed": reader.line_num - 1 - len(trades)
+        }, status=status.HTTP_201_CREATED)
+    
+    @action(detail=False, methods=['get'])
+    def portfolio(self, request):
+        stocks = {}
+        trades = Trade.objects.filter(user=request.user).select_related('stock')
+        
+        for trade in trades:
+            if trade.stock.id not in stocks:
+                stocks[trade.stock.id] = {
+                    'name': trade.stock.name,
+                    'current_price': float(trade.stock.price),
+                    'total_quantity': 0,
+                    'total_value': 0.0
+                }
+            
+            if trade.trade_type == Trade.BUY:
+                stocks[trade.stock.id]['total_quantity'] += trade.quantity
+            else:
+                stocks[trade.stock.id]['total_quantity'] -= trade.quantity
+            
+            stocks[trade.stock.id]['total_value'] = (
+                stocks[trade.stock.id]['total_quantity'] * 
+                stocks[trade.stock.id]['current_price']
+            )
+        
+        return Response({
+            'portfolio': stocks,
+            'total_value': sum(stock['total_value'] for stock in stocks.values())
         })
 
 class StockViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Stock.objects.all()
+    queryset = Stock.objects.all().order_by('id')
     serializer_class = StockSerializer
+    permission_classes = [IsAuthenticated]

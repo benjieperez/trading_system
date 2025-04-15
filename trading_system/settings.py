@@ -129,13 +129,17 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # DEFAULT TRADES DIRECTORY
 TRADES_DIR = os.path.join(BASE_DIR, 'trades_data')
 
+# REST Framework settings
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.SessionAuthentication',
+        'rest_framework.authentication.BasicAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
-    ]
+    ],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 10
 }
 
 # For cron job of processing bulk trades
