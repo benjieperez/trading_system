@@ -109,7 +109,7 @@ python manage.py process_trades
 Run all tests with coverage:
 
 ```bash
-pytest --cov
+pytest -v --cov
 ```
 
 ### Key Test Files
