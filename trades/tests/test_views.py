@@ -44,9 +44,24 @@ class TestTradeAPI:
         stock2 = StockFactory()
         url = reverse('trade-bulk')
         
-        csv_data = f"stock_id,trade_type,quantity\n{stock1.id},BUY,10\n{stock2.id},SELL,5"
+        # Create properly formatted CSV data
+        csv_data = (
+            "stock_id,trade_type,quantity\n"
+            f"{stock1.id},BUY,10\n"
+            f"{stock2.id},SELL,5"
+        )
         
-        response = client.post(url, {'file': ('trades.csv', csv_data)}, format='multipart')
+        # Create a proper file upload
+        from io import StringIO
+        file = StringIO(csv_data)
+        file.name = 'trades.csv'
+        
+        response = client.post(
+            url,
+            {'file': file},
+            format='multipart'
+        )
+        
         assert response.status_code == status.HTTP_201_CREATED
         assert response.data['created'] == 2
 

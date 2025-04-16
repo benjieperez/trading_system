@@ -47,7 +47,7 @@ class Command(BaseCommand):
                         if trades:
                             Trade.objects.bulk_create(trades)
                             self.stdout.write(
-                                self.style.SUCCESS(f"Processed {len(trades)} trades from {filename}")
+                                self.style.SUCCESS(f"Processed {len(trades)} trades from {filename}"))
                         else:
                             self.stdout.write(
                                 self.style.WARNING(f"No valid trades found in {filename}"))

@@ -29,10 +29,14 @@ class TradeSerializer(serializers.ModelSerializer):
         
     def create(self, validated_data):
         stock_id = validated_data.pop('stock_id')
-        stock = Stock.objects.get(id=stock_id)
-        validated_data['price_at_trade'] = stock.price
-        validated_data['user'] = self.context['request'].user
-        return super().create(validated_data)
+        try:
+            stock = Stock.objects.get(id=stock_id)
+            validated_data['stock'] = stock
+            validated_data['price_at_trade'] = stock.price
+            validated_data['user'] = self.context['request'].user
+            return super().create(validated_data)
+        except Stock.DoesNotExist:
+            raise serializers.ValidationError({"stock_id": "Stock does not exist"})
 
 class BulkTradeSerializer(serializers.Serializer):
     file = serializers.FileField()

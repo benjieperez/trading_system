@@ -28,29 +28,72 @@ class TradeViewSet(viewsets.ModelViewSet):
         decoded_file = csv_file.read().decode('utf-8').splitlines()
         reader = csv.DictReader(decoded_file)
         
+        # Validate required columns
+        required_columns = ['stock_id', 'trade_type', 'quantity']
+        if not all(col in reader.fieldnames for col in required_columns):
+            return Response(
+                {"error": f"CSV must contain these columns: {', '.join(required_columns)}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
         trades = []
-        for row in reader:
+        success_count = 0
+        errors = []
+        
+        for row_num, row in enumerate(reader, start=2):  # row_num starts at 2 (header is row 1)
             try:
                 stock = Stock.objects.get(id=row['stock_id'])
-                trade = Trade(
+                
+                # Validate trade type
+                trade_type = row['trade_type'].upper()
+                if trade_type not in [Trade.BUY, Trade.SELL]:
+                    raise ValueError(f"Invalid trade type: {trade_type}")
+                
+                # Validate quantity
+                try:
+                    quantity = int(row['quantity'])
+                    if quantity <= 0:
+                        raise ValueError("Quantity must be positive")
+                except ValueError:
+                    raise ValueError("Quantity must be a positive integer")
+                
+                trades.append(Trade(
                     user=request.user,
                     stock=stock,
-                    trade_type=row['trade_type'].upper(),
-                    quantity=int(row['quantity']),
+                    trade_type=trade_type,
+                    quantity=quantity,
                     price_at_trade=stock.price
+                ))
+                success_count += 1
+                
+            except Stock.DoesNotExist:
+                errors.append(f"Row {row_num}: Stock {row.get('stock_id')} not found")
+            except ValueError as e:
+                errors.append(f"Row {row_num}: {str(e)}")
+            except Exception as e:
+                errors.append(f"Row {row_num}: Unexpected error - {str(e)}")
+        
+        if trades:
+            try:
+                with transaction.atomic():
+                    Trade.objects.bulk_create(trades)
+            except Exception as e:
+                return Response(
+                    {"error": f"Failed to create trades: {str(e)}"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
-                trades.append(trade)
-            except (Stock.DoesNotExist, KeyError, ValueError) as e:
-                continue
         
-        with transaction.atomic():
-            Trade.objects.bulk_create(trades)
+        response_data = {
+            "created": success_count,
+            "failed": len(errors),
+            "total_rows_processed": len(reader.fieldnames) and (row_num - 1) or 0
+        }
         
-        return Response({
-            "status": "success",
-            "created": len(trades),
-            "failed": reader.line_num - 1 - len(trades)
-        }, status=status.HTTP_201_CREATED)
+        if errors:
+            response_data["errors"] = errors
+        
+        status_code = status.HTTP_201_CREATED if success_count else status.HTTP_400_BAD_REQUEST
+        return Response(response_data, status=status_code)
     
     @action(detail=False, methods=['get'])
     def portfolio(self, request):

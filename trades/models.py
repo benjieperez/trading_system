@@ -18,7 +18,7 @@ class Trade(models.Model):
     ]
     
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    stock = models.ForeignKey(Stock, on_delete=models.PROTECT)
+    stock = models.ForeignKey(Stock, on_delete=models.PROTECT, null=False)
     trade_type = models.CharField(max_length=4, choices=TRADE_TYPES)
     quantity = models.PositiveIntegerField()
     price_at_trade = models.DecimalField(max_digits=10, decimal_places=2)
