@@ -17,7 +17,7 @@ A Django REST Framework implementation of a stock trading system that allows aut
 
 ## 🛠 Tech Stack
 
-- **Python** 3.9+  
+- **Python** 3.11+
 - **Django** 4.2  
 - **Django REST Framework** 3.14  
 - **SQLite** (Development)  
