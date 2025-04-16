@@ -85,6 +85,9 @@ Example `trades.csv`:
 stock_id,trade_type,quantity
 AAPL,BUY,10
 GOOGL,SELL,5
+MSFT,BUY,15
+TSLA,SELL,3
+AMZN,BUY,8
 ```
 
 ---
