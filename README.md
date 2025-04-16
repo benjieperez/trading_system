@@ -94,7 +94,7 @@ AMZN,BUY,8
 
 ## 🔄 Automated CSV Processing
 
-The system checks the ``trades_data`/` directory every **3 minutes** for new CSV files. After processing, files are moved to `trades_data/processed`.
+The system checks the ``trades_data/`` directory every **3 minutes** for new CSV files. After processing, files are moved to ``trades_data/processed``.
 
 To manually trigger processing:
 
